@@ -1,118 +1,75 @@
-param(
-    [string] $GameExe,
-    [string] $Action
+param (
+    [string]$Action
 )
 
-#-Ben what are you looking for here? GO BACK TO STEAM!
+$gameExePath = $env:SteamGamePath
+$gameDir = [System.IO.Path]::GetDirectoryName($gameExePath)
+$valveDll = "steam_api64.dll"
+$customDllUrl = "https://github.com/antalervin19/SMD-PWSH/raw/main/steam_api64.dll"
+$customDllPath = Join-Path $gameDir $valveDll
+$backupDllPath = Join-Path $gameDir "steam_api64_real.dll"
+$markerFile = Join-Path $gameDir "installed.txt"
 
-if (-not $GameExe -or -not (Test-Path $GameExe)) {
-    Write-Host "GameExe not provided. Attempting to detect Scrap Mechanic install folder from Steam..."
-    
-    $steamPaths = @(
-        "$env:ProgramFiles(x86)\Steam",
-        "$env:ProgramFiles\Steam"
-    )
-
-    $found = $false
-    foreach ($steamPath in $steamPaths) {
-        $manifestPath = Join-Path $steamPath "steamapps\appmanifest_387990.acf"
-        if (Test-Path $manifestPath) {
-            $content = Get-Content $manifestPath | Out-String
-            if ($content -match '"installdir"\s+"(.+)"') {
-                $gameDir = Join-Path (Join-Path $steamPath "steamapps\common") $matches[1]
-                $GameExe = Join-Path $gameDir "Release\Scrap Mechanic.exe"
-                if (Test-Path $GameExe) {
-                    Write-Host "Detected game exe at: $GameExe"
-                    $found = $true
-                    break
-                }
-            }
-        }
-    }
-
-    if (-not $found) {
-        Write-Error "Could not detect Scrap Mechanic install folder. Exiting."
-        Read-Host "Press Enter to exit..."
-        exit 1
-    }
-}
-
-$gameDir    = Split-Path $GameExe -Parent
-$releaseDir = Join-Path $gameDir "Release"
-
-if (-not (Test-Path $releaseDir)) {
-    Write-Error "Release directory '$releaseDir' not found. Exiting."
-    Read-Host "Press Enter to exit..."
-    exit 1
-}
-
-$steamDll    = Join-Path $releaseDir "steam_api64.dll"
-$valveDll    = Join-Path $releaseDir "steam_api64_real.dll"
-$stateFile   = Join-Path $releaseDir "mod_state.txt"
-$modUrl      = "https://raw.githubusercontent.com/antalervin19/SMD-PWSH/main/steam_api64.dll"
-
-function Install-Mod {
-    if (-not (Test-Path $valveDll)) {
-        if (Test-Path $steamDll) {
-            Rename-Item -Path $steamDll -NewName "steam_api64_real.dll" -Force
-        } else {
-            Write-Warning "Original steam_api64.dll not found; continuing with mod replace."
-        }
-    }
-
-    try {
-        Invoke-WebRequest -Uri $modUrl -OutFile $steamDll -UseBasicParsing -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to download mod DLL: $_"
-        Read-Host "Press Enter to exit..."
-        exit 1
-    }
-
-    "installed" | Out-File -FilePath $stateFile -Encoding ASCII
-    Write-Host "Mod installed."
-}
-
-function Uninstall-Mod {
-    if (Test-Path $valveDll) {
-        if (Test-Path $steamDll) {
-            Remove-Item $steamDll -Force
-        }
-        Rename-Item -Path $valveDll -NewName "steam_api64.dll" -Force
+function Rename-ValveDll {
+    $existingDll = Join-Path $gameDir $valveDll
+    if (Test-Path $existingDll) {
+        Rename-Item -Path $existingDll -NewName "steam_api64_real.dll" -Force
+        Write-Host "Valve DLL renamed to steam_api64_real.dll."
     } else {
-        Write-Warning "Backup DLL ($valveDll) not found; cannot restore original."
+        Write-Host "No existing Valve DLL found."
     }
-
-    if (Test-Path $stateFile) {
-        Remove-Item $stateFile -Force
-    }
-    Write-Host "Mod uninstalled, game is vanilla."
 }
 
-function Run-Game {
-    Start-Process -FilePath $GameExe -WorkingDirectory $gameDir
+function Download-CustomDll {
+    if (-not (Test-Path $customDllPath)) {
+        Invoke-WebRequest -Uri $customDllUrl -OutFile $customDllPath
+        Write-Host "Custom DLL downloaded successfully."
+    } else {
+        Write-Host "Custom DLL already exists."
+    }
+}
+
+function Create-MarkerFile {
+    if (-not (Test-Path $markerFile)) {
+        New-Item -Path $markerFile -ItemType File -Force
+        Write-Host "Marker file created."
+    } else {
+        Write-Host "Marker file already exists."
+    }
+}
+
+function Launch-Game {
+    if (Test-Path $gameExePath) {
+        Start-Process $gameExePath
+    } else {
+        Write-Host "Game executable not found."
+    }
 }
 
 switch ($Action) {
-    "install" {
-        if (Test-Path $stateFile) {
-            Write-Host "Mod already installed, skipping install."
+    'install' {
+        if (-not (Test-Path $markerFile)) {
+            Rename-ValveDll
+            Download-CustomDll
+            Create-MarkerFile
+            Launch-Game
         } else {
-            Install-Mod
+            Write-Host "Installation has already been performed."
         }
-        Run-Game
+        break
     }
-    "uninstall" {
-        if (Test-Path $stateFile) {
-            Uninstall-Mod
+    'uninstall' {
+        if (Test-Path $markerFile) {
+            Remove-Item -Path $markerFile -Force
+            Rename-Item -Path $backupDllPath -NewName $valveDll -Force
+            Write-Host "Uninstallation complete."
         } else {
-            Write-Host "Mod not installed, nothing to uninstall."
+            Write-Host "No installation found to uninstall."
         }
-        Run-Game
+        break
     }
-    Default {
-        Write-Host "Launching game normally..."
-        Run-Game
+    default {
+        Write-Host "Invalid action specified."
+        break
     }
 }
-
-Read-Host "Press Enter to exit..."
