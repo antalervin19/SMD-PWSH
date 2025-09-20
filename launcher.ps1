@@ -5,6 +5,7 @@ param(
 
 if (-not $GameExe -or -not (Test-Path $GameExe)) {
     Write-Error "GameExe parameter is missing or invalid. Exiting."
+    Read-Host "Press Enter to exit..."
     exit 1
 }
 
@@ -13,6 +14,7 @@ $releaseDir = Join-Path $gameDir "Release"
 
 if (-not (Test-Path $releaseDir)) {
     Write-Error "Release directory '$releaseDir' not found. Exiting."
+    Read-Host "Press Enter to exit..."
     exit 1
 }
 
@@ -26,7 +28,7 @@ function Install-Mod {
         if (Test-Path $steamDll) {
             Rename-Item -Path $steamDll -NewName "steam_api64_real.dll" -Force
         } else {
-            Write-Warn "Original steam_api64.dll not found; continuing with mod replace."
+            Write-Warning "Original steam_api64.dll not found; continuing with mod replace."
         }
     }
 
@@ -34,6 +36,7 @@ function Install-Mod {
         Invoke-WebRequest -Uri $modUrl -OutFile $steamDll -UseBasicParsing -ErrorAction Stop
     } catch {
         Write-Error "Failed to download mod DLL: $_"
+        Read-Host "Press Enter to exit..."
         exit 1
     }
 
@@ -48,7 +51,7 @@ function Uninstall-Mod {
         }
         Rename-Item -Path $valveDll -NewName "steam_api64.dll" -Force
     } else {
-        Write-Warn "Backup DLL ($valveDll) not found; cannot restore original."
+        Write-Warning "Backup DLL ($valveDll) not found; cannot restore original."
     }
 
     if (Test-Path $stateFile) {
@@ -83,3 +86,6 @@ switch ($Action) {
         Run-Game
     }
 }
+
+# Pause at the end so PowerShell stays open
+Read-Host "Press Enter to exit..."
