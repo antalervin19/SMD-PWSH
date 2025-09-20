@@ -6,13 +6,34 @@ param(
 #-Ben what are you looking for here? GO BACK TO STEAM!
 
 if (-not $GameExe -or -not (Test-Path $GameExe)) {
-    $GameExe = "G:\SteamLibrary\steamapps\common\Scrap Mechanic\Release\Scrap Mechanic.exe"
-    if (-not (Test-Path $GameExe)) {
-        Write-Error "GameExe not provided and default path '$GameExe' not found. Exiting."
+    Write-Host "GameExe not provided. Attempting to detect Scrap Mechanic install folder from Steam..."
+    
+    $steamPaths = @(
+        "$env:ProgramFiles(x86)\Steam",
+        "$env:ProgramFiles\Steam"
+    )
+
+    $found = $false
+    foreach ($steamPath in $steamPaths) {
+        $manifestPath = Join-Path $steamPath "steamapps\appmanifest_387990.acf"
+        if (Test-Path $manifestPath) {
+            $content = Get-Content $manifestPath | Out-String
+            if ($content -match '"installdir"\s+"(.+)"') {
+                $gameDir = Join-Path (Join-Path $steamPath "steamapps\common") $matches[1]
+                $GameExe = Join-Path $gameDir "Release\Scrap Mechanic.exe"
+                if (Test-Path $GameExe) {
+                    Write-Host "Detected game exe at: $GameExe"
+                    $found = $true
+                    break
+                }
+            }
+        }
+    }
+
+    if (-not $found) {
+        Write-Error "Could not detect Scrap Mechanic install folder. Exiting."
         Read-Host "Press Enter to exit..."
         exit 1
-    } else {
-        Write-Host "Using default game exe: $GameExe"
     }
 }
 
