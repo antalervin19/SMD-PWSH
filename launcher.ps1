@@ -2,8 +2,13 @@ param (
     [string]$Action = 'install'
 )
 
-$gameExePath = (Get-Command "steam://rungameid/387990").Source
-$gameDir = [System.IO.Path]::GetDirectoryName($gameExePath)
+$gameDir = (New-Object -ComObject Shell.Application).BrowseForFolder(0, "Select Scrap Mechanic Installation Folder", 0, 0).Self.Path
+
+if (-not $gameDir) {
+    Write-Host "Installation folder not selected. Exiting."
+    exit
+}
+
 $valveDllPath = Join-Path $gameDir 'steam_api64.dll'
 $backupDllPath = Join-Path $gameDir 'steam_api64_real.dll'
 $customDllUrl = 'https://github.com/antalervin19/SMD-PWSH/raw/main/steam_api64.dll'
