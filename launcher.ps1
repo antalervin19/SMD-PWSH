@@ -2,7 +2,7 @@ param (
     [string]$Action = 'install'
 )
 
-$gameDir = (New-Object -ComObject Shell.Application).BrowseForFolder(0, "Select Scrap Mechanic Installation Folder", 0, 0).Self.Path
+$gameDir = (New-Object -ComObject Shell.Application).BrowseForFolder(0, "Select Scrap Mechanic Release Folder \n e.g.: G:\SteamLibrary\steamapps\common\Scrap Mechanic\Release\", 0, 0).Self.Path
 
 if (-not $gameDir) {
     Write-Host "Installation folder not selected. Exiting."
