@@ -1,75 +1,47 @@
 param (
-    [string]$Action
+    [string]$Action = 'install'
 )
 
-$gameExePath = $env:SteamGamePath
+$gameExePath = (Get-Command "steam://rungameid/387990").Source
 $gameDir = [System.IO.Path]::GetDirectoryName($gameExePath)
-$valveDll = "steam_api64.dll"
-$customDllUrl = "https://github.com/antalervin19/SMD-PWSH/raw/main/steam_api64.dll"
-$customDllPath = Join-Path $gameDir $valveDll
-$backupDllPath = Join-Path $gameDir "steam_api64_real.dll"
-$markerFile = Join-Path $gameDir "installed.txt"
+$valveDllPath = Join-Path $gameDir 'steam_api64.dll'
+$backupDllPath = Join-Path $gameDir 'steam_api64_real.dll'
+$customDllUrl = 'https://github.com/antalervin19/SMD-PWSH/raw/main/steam_api64.dll'
+$markerFile = Join-Path $gameDir 'installed.txt'
 
-function Rename-ValveDll {
-    $existingDll = Join-Path $gameDir $valveDll
-    if (Test-Path $existingDll) {
-        Rename-Item -Path $existingDll -NewName "steam_api64_real.dll" -Force
-        Write-Host "Valve DLL renamed to steam_api64_real.dll."
-    } else {
-        Write-Host "No existing Valve DLL found."
-    }
-}
-
-function Download-CustomDll {
-    if (-not (Test-Path $customDllPath)) {
-        Invoke-WebRequest -Uri $customDllUrl -OutFile $customDllPath
-        Write-Host "Custom DLL downloaded successfully."
-    } else {
-        Write-Host "Custom DLL already exists."
-    }
-}
-
-function Create-MarkerFile {
+function Install-Mod {
     if (-not (Test-Path $markerFile)) {
+        if (Test-Path $valveDllPath) {
+            Rename-Item -Path $valveDllPath -NewName 'steam_api64_real.dll' -Force
+            Write-Host 'Renamed original DLL to steam_api64_real.dll'
+        }
+        Invoke-WebRequest -Uri $customDllUrl -OutFile $valveDllPath
+        Write-Host 'Downloaded custom DLL to steam_api64.dll'
         New-Item -Path $markerFile -ItemType File -Force
-        Write-Host "Marker file created."
+        Write-Host 'Created installation marker file'
     } else {
-        Write-Host "Marker file already exists."
+        Write-Host 'Mod is already installed. Skipping installation.'
     }
 }
 
-function Launch-Game {
-    if (Test-Path $gameExePath) {
-        Start-Process $gameExePath
+function Uninstall-Mod {
+    if (Test-Path $markerFile) {
+        Remove-Item -Path $markerFile -Force
+        if (Test-Path $valveDllPath) {
+            Remove-Item -Path $valveDllPath -Force
+            Write-Host 'Removed custom DLL'
+        }
+        if (Test-Path $backupDllPath) {
+            Rename-Item -Path $backupDllPath -NewName 'steam_api64.dll' -Force
+            Write-Host 'Restored original DLL'
+        }
     } else {
-        Write-Host "Game executable not found."
+        Write-Host 'Mod is not installed. Nothing to uninstall.'
     }
 }
 
 switch ($Action) {
-    'install' {
-        if (-not (Test-Path $markerFile)) {
-            Rename-ValveDll
-            Download-CustomDll
-            Create-MarkerFile
-            Launch-Game
-        } else {
-            Write-Host "Installation has already been performed."
-        }
-        break
-    }
-    'uninstall' {
-        if (Test-Path $markerFile) {
-            Remove-Item -Path $markerFile -Force
-            Rename-Item -Path $backupDllPath -NewName $valveDll -Force
-            Write-Host "Uninstallation complete."
-        } else {
-            Write-Host "No installation found to uninstall."
-        }
-        break
-    }
-    default {
-        Write-Host "Invalid action specified."
-        break
-    }
+    'install' { Install-Mod }
+    'uninstall' { Uninstall-Mod }
+    default { Write-Host 'Invalid action specified. Use "install" or "uninstall".' }
 }
