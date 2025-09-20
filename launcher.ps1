@@ -3,10 +3,17 @@ param(
     [string] $Action
 )
 
+#-Ben what are you looking for here? GO BACK TO STEAM!
+
 if (-not $GameExe -or -not (Test-Path $GameExe)) {
-    Write-Error "GameExe parameter is missing or invalid. Exiting."
-    Read-Host "Press Enter to exit..."
-    exit 1
+    $GameExe = "G:\SteamLibrary\steamapps\common\Scrap Mechanic\Release\Scrap Mechanic.exe"
+    if (-not (Test-Path $GameExe)) {
+        Write-Error "GameExe not provided and default path '$GameExe' not found. Exiting."
+        Read-Host "Press Enter to exit..."
+        exit 1
+    } else {
+        Write-Host "Using default game exe: $GameExe"
+    }
 }
 
 $gameDir    = Split-Path $GameExe -Parent
@@ -87,5 +94,4 @@ switch ($Action) {
     }
 }
 
-# Pause at the end so PowerShell stays open
 Read-Host "Press Enter to exit..."
